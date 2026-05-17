@@ -8,6 +8,8 @@ import {
   HIT_RADIUS_NORM,
   LIFE_MAX,
   MISS_RESULT,
+  SCORE_CAP,
+  comboMultiplier,
   judgeHit,
 } from "./judgments";
 
@@ -128,8 +130,19 @@ export function Gameplay({
   }, [score, maxCombo, counts, noteCount, life, onComplete]);
 
   const applyResult = useCallback(
-    (note: Note, judgment: Judgment, deltaLife: number, gained: number, resetCombo: boolean) => {
+    (note: Note, judgment: Judgment, deltaLife: number, baseGained: number, resetCombo: boolean) => {
       resolvedRef.current.add(note.id);
+
+      const prevCombo = comboRef.current;
+      const nextCombo = resetCombo ? 0 : prevCombo + 1;
+      comboRef.current = nextCombo;
+
+      // Apply the combo-tier bonus multiplier off the combo count *after* this
+      // hit lands, so the 10th/25th/50th/100th hit in a streak is the first to
+      // earn the new tier's payout. Misses (baseGained === 0) stay at 0.
+      const multiplier = baseGained > 0 ? comboMultiplier(nextCombo) : 1;
+      const gained = Math.round(baseGained * multiplier);
+
       setJudgmentsById((m) => ({ ...m, [note.id]: judgment }));
       setScore((s) => s + gained);
       setCounts((c) => ({
@@ -147,10 +160,6 @@ export function Gameplay({
         }
         return next;
       });
-
-      const prevCombo = comboRef.current;
-      const nextCombo = resetCombo ? 0 : prevCombo + 1;
-      comboRef.current = nextCombo;
       setCombo(nextCombo);
       setMaxCombo((mc) => Math.max(mc, nextCombo));
 
@@ -285,8 +294,9 @@ export function Gameplay({
   );
 
   const lifePct = (life / LIFE_MAX) * 100;
-  const cumulativeScore = initialScore + score;
+  const cumulativeScore = Math.min(SCORE_CAP, initialScore + score);
   const tier = comboTier(combo);
+  const multiplier = comboMultiplier(combo);
 
   return (
     <div className="gameplay" ref={containerRef} onPointerDown={handlePointerDown}>
@@ -346,7 +356,9 @@ export function Gameplay({
                 <span key={combo} className="hud__combo-num">
                   {combo}
                 </span>
-                <span className="hud__combo-label">combo</span>
+                <span className="hud__combo-label">
+                  combo{multiplier > 1 ? ` ×${multiplier}` : ""}
+                </span>
               </>
             ) : comboBroken ? (
               <span key={comboBroken.id} className="hud__combo-break">

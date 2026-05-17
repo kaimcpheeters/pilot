@@ -4,7 +4,22 @@ import type { ActId, Variant, VideoEntry } from "../game/types";
 import { COVER_ART, VIDEO_MANIFEST, getVideo } from "../game/manifest";
 import { loadBeatmap } from "../game/storage";
 import { Gameplay, type GameplayResult } from "../game/Gameplay";
-import { ACT_THRESHOLDS, LIFE_START, maxScore } from "../game/judgments";
+import {
+  ACT_THRESHOLDS,
+  LIFE_START,
+  SCORE_CAP,
+  maxScore,
+} from "../game/judgments";
+import {
+  INITIALS_LENGTH,
+  LEADERBOARD_MAX_ENTRIES,
+  type LeaderboardEntry,
+  insertEntry,
+  loadLeaderboard,
+  normalizeInitials,
+  qualifyingRank,
+  saveLeaderboard,
+} from "../game/leaderboard";
 import { OrientationGate } from "../game/OrientationGate";
 import { useOrientationGate } from "../game/useOrientationGate";
 
@@ -42,7 +57,7 @@ const initialGameState: GameState = {
 function mergeSectionResult(prev: GameState, r: GameplayResult): GameState {
   return {
     life: r.lifeRemaining,
-    score: prev.score + r.score,
+    score: Math.min(SCORE_CAP, prev.score + r.score),
     maxCombo: Math.max(prev.maxCombo, r.maxCombo),
     perfect: prev.perfect + r.perfect,
     good: prev.good + r.good,
@@ -153,6 +168,7 @@ export function PlayerView() {
           title="Game Over"
           subtitle={`You fell in Act ${phase.act}.`}
           actionLabel="Retry"
+          score={gameState.score}
           onAction={reset}
         />
       )}
@@ -267,14 +283,21 @@ interface EndScreenProps {
   title: string;
   subtitle: string;
   actionLabel: string;
+  score: number;
   onAction: () => void;
 }
 
-function EndScreen({ title, subtitle, actionLabel, onAction }: EndScreenProps) {
+function EndScreen({ title, subtitle, actionLabel, score, onAction }: EndScreenProps) {
   return (
     <div className="end">
       <h1 className="end__title">{title}</h1>
       <p className="end__sub">{subtitle}</p>
+      <div className="end__stats end__stats--single">
+        <div>
+          <span>Score</span>
+          <strong>{score.toLocaleString()}</strong>
+        </div>
+      </div>
       <button className="end__action" onClick={onAction}>
         {actionLabel}
       </button>
@@ -315,9 +338,117 @@ function ResultsScreen({ variant, totals, onReplay }: ResultsScreenProps) {
           <strong>{totals.miss}</strong>
         </div>
       </div>
+      <LeaderboardPanel score={totals.score} />
       <button className="end__action" onClick={onReplay}>
         Play again
       </button>
     </div>
+  );
+}
+
+interface LeaderboardPanelProps {
+  score: number;
+}
+
+/**
+ * Retro initials-entry + top-10 board. Loads once on mount from localStorage.
+ * If the run's score qualifies for the top {@link LEADERBOARD_MAX_ENTRIES},
+ * shows an initials prompt (up to INITIALS_LENGTH chars). After submit (or if the run didn't
+ * qualify) just shows the leaderboard, with the freshly-inserted row
+ * highlighted via its synthetic `achievedAt` key.
+ */
+function LeaderboardPanel({ score }: LeaderboardPanelProps) {
+  const [board, setBoard] = useState<LeaderboardEntry[]>(() => loadLeaderboard());
+  const [draft, setDraft] = useState("");
+  const [submittedKey, setSubmittedKey] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const rank = useMemo(() => qualifyingRank(board, score), [board, score]);
+  const canSubmit = rank !== null && submittedKey === null;
+
+  useEffect(() => {
+    if (canSubmit) inputRef.current?.focus();
+  }, [canSubmit]);
+
+  const handleSubmit = useCallback(
+    (ev: React.FormEvent<HTMLFormElement>) => {
+      ev.preventDefault();
+      if (submittedKey !== null) return;
+      const entry: LeaderboardEntry = {
+        name: normalizeInitials(draft),
+        score,
+        achievedAt: new Date().toISOString(),
+      };
+      const next = insertEntry(board, entry);
+      saveLeaderboard(next);
+      setBoard(next);
+      setSubmittedKey(entry.achievedAt);
+    },
+    [board, draft, score, submittedKey],
+  );
+
+  const visible = board.slice(0, 10);
+
+  return (
+    <section className="leaderboard">
+      <h2 className="leaderboard__title">High Scores</h2>
+
+      {canSubmit && (
+        <form className="leaderboard__entry" onSubmit={handleSubmit}>
+          <p className="leaderboard__rank-callout">
+            New entry — Rank #{rank} of {LEADERBOARD_MAX_ENTRIES}
+          </p>
+          <label className="leaderboard__entry-label">
+            <span>Enter Name</span>
+            <input
+              ref={inputRef}
+              className="leaderboard__entry-input"
+              type="text"
+              inputMode="text"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={INITIALS_LENGTH}
+              value={draft}
+              onChange={(e) =>
+                setDraft(
+                  e.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]/g, "")
+                    .slice(0, INITIALS_LENGTH),
+                )
+              }
+              placeholder={"A".repeat(INITIALS_LENGTH)}
+              aria-label="Initials"
+            />
+          </label>
+          <button type="submit" className="leaderboard__submit">
+            Submit
+          </button>
+        </form>
+      )}
+
+      {visible.length === 0 ? (
+        <p className="leaderboard__empty">No scores yet — be the first.</p>
+      ) : (
+        <ol className="leaderboard__list">
+          {visible.map((e, i) => (
+            <li
+              key={`${e.achievedAt}-${i}`}
+              className={
+                "leaderboard__row" +
+                (e.achievedAt === submittedKey ? " leaderboard__row--new" : "")
+              }
+            >
+              <span className="leaderboard__rank">{i + 1}</span>
+              <span className="leaderboard__name">{e.name}</span>
+              <span className="leaderboard__score">
+                {e.score.toLocaleString()}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }

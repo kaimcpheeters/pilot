@@ -4,6 +4,7 @@ import "../styles/editor.css";
 import { EDITABLE_VIDEOS } from "../game/manifest";
 import type { ActId, Beatmap, Note, VideoEntry } from "../game/types";
 import {
+  downloadAllBeatmaps,
   downloadBeatmap,
   importBeatmapJson,
   loadBeatmap,
@@ -269,6 +270,9 @@ export function EditorView() {
           <div className="editor__io">
             <button type="button" onClick={handleExport}>
               Export JSON
+            </button>
+            <button type="button" onClick={() => downloadAllBeatmaps()}>
+              Export All
             </button>
             <label className="editor__import">
               Import JSON
