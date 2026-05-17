@@ -1,6 +1,21 @@
 import type { ActId, Variant, VideoEntry } from "./types";
 
-const videos = (path: string) => `/media/videos/${encodeURIComponent(path)}`;
+/**
+ * Base URL for the gameplay MP4s. In production these are hosted on R2
+ * (via `media.pilot.kaimcpheeters.com`) so we don't ship ~140 MB of video
+ * through Pages. Locally it falls back to "" so Vite's `public/` directory
+ * keeps serving the files at the same paths as before.
+ *
+ * Override via `VITE_MEDIA_BASE_URL` (no trailing slash). Only applies to
+ * the gameplay videos — cover art and editor/audio assets continue to
+ * ship same-origin out of `public/`.
+ */
+const MEDIA_BASE = (
+  (import.meta.env?.VITE_MEDIA_BASE_URL as string | undefined) ?? ""
+).replace(/\/+$/, "");
+
+const videos = (path: string) =>
+  `${MEDIA_BASE}/media/videos/${encodeURIComponent(path)}`;
 const cleanVideos = (base: string) =>
   `/media/videos-clean/${encodeURIComponent(`${base} - no music`)}.mp4`;
 

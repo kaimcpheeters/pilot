@@ -16,6 +16,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": ["src", "beatmaps/latest.json"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

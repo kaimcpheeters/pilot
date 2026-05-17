@@ -1,0 +1,22 @@
+{
+  "rules": [
+    {
+      "allowed": {
+        "origins": [
+          "https://pilot.kaimcpheeters.com",
+          "http://localhost:5173",
+          "http://localhost:4173"
+        ],
+        "methods": ["GET", "HEAD"],
+        "headers": ["Range", "If-Range", "If-None-Match", "If-Modified-Since"]
+      },
+      "exposeHeaders": [
+        "Content-Length",
+        "Content-Range",
+        "ETag",
+        "Accept-Ranges"
+      ],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}

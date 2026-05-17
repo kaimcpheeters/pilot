@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
+  // Wrangler config for Cloudflare Pages.
+  //
+  // - "name" is the Pages project slug (default `*.pages.dev` URL is
+  //   pilot-du1.pages.dev). The custom domain `pilot.kaimcpheeters.com`
+  //   is attached separately via `wrangler pages domain add`.
+  // - "pages_build_output_dir" tells Pages where Vite drops the built
+  //   site so `wrangler pages deploy` (no path arg) finds it.
+  // - "kv_namespaces" exposes the high-score store to Pages Functions
+  //   under `functions/api/`. See `functions/api/leaderboard.ts`.
+  "name": "pilot",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-05-17",
+  "kv_namespaces": [
+    {
+      "binding": "LEADERBOARD",
+      // Production namespace — used by `wrangler pages deploy`.
+      "id": "c809aec81965410e896dd39f69c0cf67",
+      // Preview namespace — used by preview branch deploys and
+      // `wrangler pages dev --remote`. Keeps junk submissions out of prod.
+      "preview_id": "ac4e888ca97e4b7b8ccf2663a5354afe"
+    }
+  ]
+}

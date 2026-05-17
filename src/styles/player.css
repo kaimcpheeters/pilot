@@ -510,3 +510,30 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
+
+.leaderboard__empty--error {
+  color: var(--miss);
+}
+
+.leaderboard__retry {
+  margin-left: 0.6rem;
+  padding: 0.25rem 0.8rem;
+  background: transparent;
+  border: 1px solid rgba(var(--tron-rgb), 0.55);
+  color: var(--tron);
+  font: inherit;
+  font-size: 0.65rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.leaderboard__error {
+  margin: 0;
+  text-align: center;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--miss);
+}

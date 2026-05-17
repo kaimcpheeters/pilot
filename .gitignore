@@ -5,6 +5,10 @@ dist
 *.local
 *.tsbuildinfo
 
+# ===== Cloudflare / Wrangler =====
+.wrangler/
+.dev.vars
+
 # Generated when `tsc -b` resolves the vite.config tsproject
 vite.config.js
 vite.config.d.ts
@@ -37,3 +41,8 @@ audio-sep/mss/
 public/media/videos/
 public/media/videos-clean/
 .frame-compare/
+
+# ===== Beatmaps =====
+# Dated `/editor` exports are scratch — only the promoted `latest.json`
+# (baked into the prod bundle) is tracked. See `npm run beatmaps:promote`.
+beatmaps/pilot-beatmaps-*.json

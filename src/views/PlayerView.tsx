@@ -13,12 +13,11 @@ import {
 import {
   INITIALS_LENGTH,
   LEADERBOARD_MAX_ENTRIES,
+  LeaderboardError,
   type LeaderboardEntry,
-  insertEntry,
-  loadLeaderboard,
-  normalizeInitials,
+  fetchLeaderboard,
   qualifyingRank,
-  saveLeaderboard,
+  submitLeaderboardEntry,
 } from "../game/leaderboard";
 import { OrientationGate } from "../game/OrientationGate";
 import { useOrientationGate } from "../game/useOrientationGate";
@@ -402,50 +401,125 @@ interface LeaderboardPanelProps {
   score: number;
 }
 
+type LoadState =
+  | { kind: "loading" }
+  | { kind: "loaded" }
+  | { kind: "load_failed"; message: string };
+
+type SubmitState =
+  | { kind: "idle" }
+  | { kind: "submitting" }
+  | { kind: "submitted"; acceptedAt: string }
+  | { kind: "submit_failed"; message: string };
+
+function loadErrorMessage(err: unknown): string {
+  if (err instanceof LeaderboardError) {
+    switch (err.kind) {
+      case "network":
+        return "Network error — can't reach the high-score server.";
+      case "timeout":
+        return "Server timed out loading scores.";
+      default:
+        return "Couldn't load scores. Please retry.";
+    }
+  }
+  return "Couldn't load scores. Please retry.";
+}
+
+function submitErrorMessage(err: unknown): string {
+  if (err instanceof LeaderboardError) {
+    switch (err.kind) {
+      case "network":
+        return "Network error — your score wasn't recorded.";
+      case "timeout":
+        return "Server timed out — your score wasn't recorded.";
+      case "rate_limited":
+        return "Too many submissions. Try again in a minute.";
+      case "invalid":
+        return "Server rejected the submission.";
+      default:
+        return "Server error — your score wasn't recorded.";
+    }
+  }
+  return "Something went wrong submitting your score.";
+}
+
 /**
- * Retro initials-entry + top-10 board. Loads once on mount from localStorage.
- * If the run's score qualifies for the top {@link LEADERBOARD_MAX_ENTRIES},
- * shows an initials prompt (up to INITIALS_LENGTH chars). After submit (or if the run didn't
- * qualify) just shows the leaderboard, with the freshly-inserted row
- * highlighted via its synthetic `achievedAt` key.
+ * Retro initials-entry + top-10 board. Loads the current board on mount
+ * from the KV-backed Pages Function (prod) or localStorage (dev). If the
+ * run's score qualifies for the top {@link LEADERBOARD_MAX_ENTRIES},
+ * shows an initials prompt (up to INITIALS_LENGTH chars). On successful
+ * submit the server returns the canonical board plus the freshly-stamped
+ * row, which we key the "new entry" highlight off of so ties are
+ * unambiguous.
  */
 function LeaderboardPanel({ score }: LeaderboardPanelProps) {
-  const [board, setBoard] = useState<LeaderboardEntry[]>(() => loadLeaderboard());
+  const [board, setBoard] = useState<LeaderboardEntry[]>([]);
   const [draft, setDraft] = useState("");
-  const [submittedKey, setSubmittedKey] = useState<string | null>(null);
+  const [loadState, setLoadState] = useState<LoadState>({ kind: "loading" });
+  const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
+  const [loadNonce, setLoadNonce] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    setLoadState({ kind: "loading" });
+    fetchLeaderboard()
+      .then((entries) => {
+        if (cancelled) return;
+        setBoard(entries);
+        setLoadState({ kind: "loaded" });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setBoard([]);
+        setLoadState({ kind: "load_failed", message: loadErrorMessage(err) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadNonce]);
+
   const rank = useMemo(() => qualifyingRank(board, score), [board, score]);
-  const canSubmit = rank !== null && submittedKey === null;
+  const canEnter =
+    loadState.kind === "loaded" &&
+    rank !== null &&
+    submitState.kind !== "submitted";
 
   useEffect(() => {
-    if (canSubmit) inputRef.current?.focus();
-  }, [canSubmit]);
+    if (canEnter && submitState.kind === "idle") {
+      inputRef.current?.focus({ preventScroll: true });
+    }
+  }, [canEnter, submitState.kind]);
 
   const handleSubmit = useCallback(
-    (ev: React.FormEvent<HTMLFormElement>) => {
+    async (ev: React.FormEvent<HTMLFormElement>) => {
       ev.preventDefault();
-      if (submittedKey !== null) return;
-      const entry: LeaderboardEntry = {
-        name: normalizeInitials(draft),
-        score,
-        achievedAt: new Date().toISOString(),
-      };
-      const next = insertEntry(board, entry);
-      saveLeaderboard(next);
-      setBoard(next);
-      setSubmittedKey(entry.achievedAt);
+      if (submitState.kind === "submitting" || submitState.kind === "submitted") {
+        return;
+      }
+      setSubmitState({ kind: "submitting" });
+      try {
+        const { entries, accepted } = await submitLeaderboardEntry(draft, score);
+        setBoard(entries);
+        setSubmitState({ kind: "submitted", acceptedAt: accepted.achievedAt });
+      } catch (err) {
+        setSubmitState({ kind: "submit_failed", message: submitErrorMessage(err) });
+      }
     },
-    [board, draft, score, submittedKey],
+    [draft, score, submitState.kind],
   );
 
   const visible = board.slice(0, 10);
+  const submittedKey =
+    submitState.kind === "submitted" ? submitState.acceptedAt : null;
+  const submitting = submitState.kind === "submitting";
 
   return (
     <section className="leaderboard">
       <h2 className="leaderboard__title">High Scores</h2>
 
-      {canSubmit && (
+      {canEnter && (
         <form className="leaderboard__entry" onSubmit={handleSubmit}>
           <p className="leaderboard__rank-callout">
             New entry — Rank #{rank} of {LEADERBOARD_MAX_ENTRIES}
@@ -462,6 +536,7 @@ function LeaderboardPanel({ score }: LeaderboardPanelProps) {
               spellCheck={false}
               maxLength={INITIALS_LENGTH}
               value={draft}
+              disabled={submitting}
               onChange={(e) =>
                 setDraft(
                   e.target.value
@@ -474,19 +549,37 @@ function LeaderboardPanel({ score }: LeaderboardPanelProps) {
               aria-label="Initials"
             />
           </label>
-          <button type="submit" className="leaderboard__submit">
-            Submit
+          <button type="submit" className="leaderboard__submit" disabled={submitting}>
+            {submitting ? "Sending..." : "Submit"}
           </button>
+          {submitState.kind === "submit_failed" && (
+            <p className="leaderboard__error" role="alert">
+              {submitState.message}
+            </p>
+          )}
         </form>
       )}
 
-      {visible.length === 0 ? (
+      {loadState.kind === "loading" ? (
+        <p className="leaderboard__empty">Loading scores...</p>
+      ) : loadState.kind === "load_failed" ? (
+        <p className="leaderboard__empty leaderboard__empty--error" role="alert">
+          {loadState.message}{" "}
+          <button
+            type="button"
+            className="leaderboard__retry"
+            onClick={() => setLoadNonce((n) => n + 1)}
+          >
+            Retry
+          </button>
+        </p>
+      ) : visible.length === 0 ? (
         <p className="leaderboard__empty">No scores yet — be the first.</p>
       ) : (
         <ol className="leaderboard__list">
           {visible.map((e, i) => (
             <li
-              key={`${e.achievedAt}-${i}`}
+              key={`${e.name}|${e.achievedAt}`}
               className={
                 "leaderboard__row" +
                 (e.achievedAt === submittedKey ? " leaderboard__row--new" : "")
