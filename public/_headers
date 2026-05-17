@@ -3,3 +3,8 @@
 
 /media/images/*
   Cache-Control: public, max-age=86400
+
+# Social preview image. Short max-age so swapping the artwork actually
+# propagates through social scrapers (Discord/Twitter/etc.) within a day.
+/og-cover.jpg
+  Cache-Control: public, max-age=86400
