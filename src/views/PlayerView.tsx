@@ -79,6 +79,22 @@ export function PlayerView() {
   const { blocked } = useOrientationGate();
   const [phase, setPhase] = useState<Phase>({ kind: "cover" });
   const [gameState, setGameState] = useState<GameState>(initialGameState);
+  const [loadedIds, setLoadedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  const totalVideos = VIDEO_MANIFEST.length;
+  const loadedCount = loadedIds.size;
+  const allLoaded = loadedCount >= totalVideos;
+
+  const markLoaded = useCallback((id: string) => {
+    setLoadedIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
 
   const reset = useCallback(() => {
     setGameState(initialGameState);
@@ -139,7 +155,7 @@ export function PlayerView() {
 
   return (
     <div className="screen">
-      <VideoPreloader />
+      <VideoPreloader onLoaded={markLoaded} />
 
       {phase.kind === "cover" && (
         <CoverScreen blocked={blocked} onStart={handleStart} />
@@ -179,6 +195,10 @@ export function PlayerView() {
           totals={phase.totals}
           onReplay={reset}
         />
+      )}
+
+      {!allLoaded && (
+        <LoadingBar loaded={loadedCount} total={totalVideos} />
       )}
     </div>
   );
@@ -228,7 +248,11 @@ function PlayPhase({ act, variant, initialLife, initialScore, onComplete }: Play
   );
 }
 
-function VideoPreloader() {
+interface VideoPreloaderProps {
+  onLoaded: (id: string) => void;
+}
+
+function VideoPreloader({ onLoaded }: VideoPreloaderProps) {
   return (
     <div
       aria-hidden
@@ -242,8 +266,36 @@ function VideoPreloader() {
       }}
     >
       {VIDEO_MANIFEST.map((v) => (
-        <video key={v.id} src={v.src} preload="auto" muted playsInline />
+        <video
+          key={v.id}
+          src={v.src}
+          preload="auto"
+          muted
+          playsInline
+          onCanPlayThrough={() => onLoaded(v.id)}
+        />
       ))}
+    </div>
+  );
+}
+
+interface LoadingBarProps {
+  loaded: number;
+  total: number;
+}
+
+function LoadingBar({ loaded, total }: LoadingBarProps) {
+  const pct = total === 0 ? 0 : Math.min(100, (loaded / total) * 100);
+  return (
+    <div
+      className="loading-bar"
+      role="progressbar"
+      aria-label="Loading videos"
+      aria-valuemin={0}
+      aria-valuemax={total}
+      aria-valuenow={loaded}
+    >
+      <div className="loading-bar__fill" style={{ width: `${pct}%` }} />
     </div>
   );
 }

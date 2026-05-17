@@ -85,6 +85,27 @@
   box-shadow: 0 0 18px rgba(var(--tron-rgb), 0.35);
 }
 
+/* ---------- Loading bar ---------- */
+
+.loading-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(var(--tron-rgb), 0.08);
+  z-index: 200;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.loading-bar__fill {
+  height: 100%;
+  background: var(--tron);
+  box-shadow: 0 0 8px rgba(var(--tron-rgb), 0.55);
+  transition: width 0.25s ease-out;
+}
+
 /* ---------- Orientation gate ---------- */
 
 .orientation-gate {
