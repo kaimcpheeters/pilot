@@ -116,6 +116,46 @@
   box-shadow: 0 0 18px rgba(var(--tron-rgb), 0.35);
 }
 
+/* Mobile-only fullscreen toggle pinned to the top-left of the cover. Uses
+ * env(safe-area-inset-*) so it clears the notch / status bar on iOS and
+ * Android when the page is launched in a chrome-less context. */
+.cover__fullscreen {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  left: calc(env(safe-area-inset-left, 0px) + 0.75rem);
+  width: 2.5rem;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(var(--tron-rgb), 0.45);
+  color: var(--tron);
+  text-shadow: 0 0 6px rgba(var(--tron-rgb), 0.5);
+  box-shadow:
+    inset 0 0 8px rgba(var(--tron-rgb), 0.12),
+    0 0 10px rgba(var(--tron-rgb), 0.15);
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cover__fullscreen:hover,
+.cover__fullscreen:focus-visible {
+  background: rgba(var(--tron-rgb), 0.1);
+  border-color: var(--tron);
+  box-shadow:
+    inset 0 0 12px rgba(var(--tron-rgb), 0.2),
+    0 0 16px rgba(var(--tron-rgb), 0.3);
+  outline: none;
+}
+
+.cover__fullscreen svg {
+  filter: drop-shadow(0 0 4px rgba(var(--tron-rgb), 0.45));
+}
+
 /* ---------- Difficulty selector ----------
  * Cover-screen rectangular bar that appears once the player has more than
  * one difficulty unlocked. Each unlocked difficulty is one coloured segment;

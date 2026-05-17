@@ -30,6 +30,12 @@ import {
 } from "../game/leaderboard";
 import { OrientationGate } from "../game/OrientationGate";
 import { useOrientationGate } from "../game/useOrientationGate";
+import {
+  enterFullscreen,
+  isMobileViewport,
+  useFullscreen,
+} from "../game/fullscreen";
+import { lockLandscape } from "../game/landscape";
 import { TrainingView } from "../training/TrainingView";
 
 type Phase =
@@ -126,12 +132,27 @@ export function PlayerView() {
 
   const handleStart = useCallback(() => {
     if (blocked) return;
+    // Mobile-only: take fullscreen and try to pin landscape. Desktop users
+    // intentionally stay windowed -- on desktop the cover icon isn't shown
+    // and Start doesn't surprise them by hijacking the viewport.
+    if (isMobileViewport()) {
+      void (async () => {
+        await enterFullscreen();
+        await lockLandscape();
+      })();
+    }
     setGameState(makeInitialState(activeDifficulty));
     setPhase({ kind: "play", act: 1, variant: "main" });
   }, [blocked, activeDifficulty]);
 
   const handleTraining = useCallback(() => {
     if (blocked) return;
+    if (isMobileViewport()) {
+      void (async () => {
+        await enterFullscreen();
+        await lockLandscape();
+      })();
+    }
     setPhase({ kind: "training" });
   }, [blocked]);
 
@@ -211,7 +232,9 @@ export function PlayerView() {
         />
       )}
 
-      {phase.kind === "training" && <TrainingView onQuit={reset} />}
+      {phase.kind === "training" && (
+        <TrainingView initialDifficulty={activeDifficulty} onQuit={reset} />
+      )}
 
       {phase.kind === "play" && (
         <PlayPhase
@@ -279,6 +302,7 @@ function CoverScreen({
   return (
     <div className="cover" onClick={blocked ? undefined : onStart}>
       <img className="cover__art" src={COVER_ART} alt="Pilot cover art" />
+      <FullscreenButton />
       {!blocked && (
         <div className="cover__prompt">
           {showSelector && (
@@ -309,6 +333,42 @@ function CoverScreen({
       )}
       {blocked && <OrientationGate />}
     </div>
+  );
+}
+
+/**
+ * Mobile-only "go fullscreen" affordance pinned to the top-left of the cover
+ * screen. Hidden on:
+ *  - desktop (no coarse pointer / wide viewport),
+ *  - platforms that don't actually support the Fullscreen API (iPhone Safari),
+ *  - documents that are already in fullscreen.
+ * Click stops propagation so it doesn't also trigger the cover's
+ * "click anywhere to start" handler.
+ */
+function FullscreenButton() {
+  const { isFullscreen, isAvailable } = useFullscreen();
+  if (!isAvailable || isFullscreen) return null;
+  return (
+    <button
+      type="button"
+      className="cover__fullscreen"
+      aria-label="Enter fullscreen"
+      onClick={(e) => {
+        e.stopPropagation();
+        void enterFullscreen();
+      }}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22">
+        <path
+          d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
   );
 }
 

@@ -2,16 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import "../styles/player.css";
 import "../styles/training.css";
 import { Gameplay, type GameplayResult, type HitKind } from "../game/Gameplay";
-import {
-  DIFFICULTIES,
-  NORMAL_PROFILE,
-  type DifficultyProfile,
-} from "../game/judgments";
+import { DIFFICULTIES, type DifficultyProfile } from "../game/judgments";
 import { loadBeatmap } from "../game/storage";
 import { TRAINING_VIDEO } from "./video";
 import { playSfx, preloadSfx } from "./sfx";
 
 interface TrainingViewProps {
+  /**
+   * Difficulty to start the session at. Mirrors the player's currently
+   * selected difficulty from the cover screen so Training opens on the
+   * same setting they were just playing.
+   */
+  initialDifficulty: DifficultyProfile;
   /**
    * Called when the player exits training — either via the Quit button
    * or after running out of energy. The hosting view is expected to
@@ -27,10 +29,13 @@ interface TrainingViewProps {
  * Training click), so playback autoplays cleanly here — no internal
  * start gate is needed.
  */
-export function TrainingView({ onQuit }: TrainingViewProps) {
+export function TrainingView({
+  initialDifficulty,
+  onQuit,
+}: TrainingViewProps) {
   const [runId, setRunId] = useState(0);
   const [difficulty, setDifficulty] =
-    useState<DifficultyProfile>(NORMAL_PROFILE);
+    useState<DifficultyProfile>(initialDifficulty);
   const [result, setResult] = useState<GameplayResult | null>(null);
 
   // Pull notes from storage so /editor authoring flows through.
