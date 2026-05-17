@@ -13,7 +13,11 @@ type Phase =
   | { kind: "play"; act: ActId; variant: Variant }
   | { kind: "cutscene"; act: ActId; variant: Variant }
   | { kind: "gameOver"; act: ActId }
-  | { kind: "results"; finalVariant: Variant; totals: GameState };
+  | {
+      kind: "results";
+      finalVariant: "passEnding" | "perfectEnding";
+      totals: GameState;
+    };
 
 interface GameState {
   life: number;
@@ -78,8 +82,15 @@ export function PlayerView() {
       setGameState(nextState);
 
       if (result.failed) {
-        const failureVariant: Variant = act === 3 ? "failureEnding" : "earlyFailure";
-        setPhase({ kind: "cutscene", act, variant: failureVariant });
+        // pass/success clips are transition clips that morph the dragon into
+        // the next act's color. If the player dies inside one, route to that
+        // next act's failure cutscene so the dragon doesn't visually revert.
+        const isTransitionClip = variant === "pass" || variant === "success";
+        const failureAct: ActId =
+          isTransitionClip && act < 3 ? ((act + 1) as ActId) : act;
+        const failureVariant: Variant =
+          failureAct === 3 ? "failureEnding" : "earlyFailure";
+        setPhase({ kind: "cutscene", act: failureAct, variant: failureVariant });
         return;
       }
 
@@ -89,7 +100,9 @@ export function PlayerView() {
       }
 
       if (act === 3) {
-        setPhase({ kind: "results", finalVariant: variant, totals: nextState });
+        if (variant === "passEnding" || variant === "perfectEnding") {
+          setPhase({ kind: "results", finalVariant: variant, totals: nextState });
+        }
         return;
       }
 
@@ -101,16 +114,12 @@ export function PlayerView() {
 
   const handleCutsceneEnded = useCallback(
     (act: ActId, variant: Variant) => {
-      if (variant === "earlyFailure") {
+      if (variant === "earlyFailure" || variant === "failureEnding") {
         setPhase({ kind: "gameOver", act });
         return;
       }
-      if (variant === "failureEnding") {
-        setPhase({ kind: "results", finalVariant: "failureEnding", totals: gameState });
-        return;
-      }
     },
-    [gameState],
+    [],
   );
 
   return (
@@ -274,18 +283,13 @@ function EndScreen({ title, subtitle, actionLabel, onAction }: EndScreenProps) {
 }
 
 interface ResultsScreenProps {
-  variant: Variant;
+  variant: "passEnding" | "perfectEnding";
   totals: GameState;
   onReplay: () => void;
 }
 
 function ResultsScreen({ variant, totals, onReplay }: ResultsScreenProps) {
-  const title =
-    variant === "perfectEnding"
-      ? "Perfect Victory"
-      : variant === "passEnding"
-        ? "Victory"
-        : "Defeat";
+  const title = variant === "perfectEnding" ? "Perfect Victory" : "Victory";
   return (
     <div className="end end--results">
       <h1 className="end__title">{title}</h1>
