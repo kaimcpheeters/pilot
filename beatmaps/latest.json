@@ -402,6 +402,18 @@
           "approach": 1
         }
       ]
+    },
+    {
+      "videoId": "training",
+      "notes": [
+        {
+          "id": "a4e59d69-628c-4abf-b5b7-237e960d348b",
+          "t": 1.424,
+          "x": 0.665,
+          "y": 0.462,
+          "approach": 1
+        }
+      ]
     }
   ]
 }

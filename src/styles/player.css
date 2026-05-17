@@ -22,6 +22,21 @@
   --tron-rgb:     172, 236, 251;
 
   --good:         var(--cyan);
+
+  /* ===== Difficulty palette =====
+   * Hue-rotated siblings of --tron (#ACECFB, the cover-art "core" swatch)
+   * kept at the same lightness/saturation so all four sit visually together.
+   * Used by `.difficulty__seg--<id>` / `.difficulty__arrow--<id>` to colour-
+   * code the cover-screen difficulty selector. Normal aliases --tron / its
+   * rgb triplet so the "default" difficulty matches the tron Start button.
+   */
+  --tron-easy:        #a4fbb6;
+  --tron-easy-rgb:    164, 251, 182;
+  --tron-normal:      var(--tron);
+  --tron-hard:        #fbcf8a;
+  --tron-hard-rgb:    251, 207, 138;
+  --tron-insane:      #fb9494;
+  --tron-insane-rgb:  251, 148, 148;
 }
 
 .screen {
@@ -64,7 +79,21 @@
   text-align: center;
 }
 
-.cover__start {
+/* Shared width for the cover-screen "control stack" (difficulty bar, start
+ * button, and training button). They sit one above the other inside
+ * `.cover__prompt`; pinning each to the same intrinsic width keeps the
+ * column visually aligned. */
+.cover__start,
+.cover__training,
+.difficulty {
+  width: min(16rem, 80vw);
+}
+
+/* Training is a secondary entry point that appears under "Click to start"
+ * after the first defeat. Same visual treatment as the start button so
+ * the column reads as a coherent action stack. */
+.cover__start,
+.cover__training {
   font-size: 0.85rem;
   padding: 0.65rem 2rem;
   border-radius: 2px;
@@ -76,13 +105,138 @@
   text-transform: uppercase;
   text-shadow: 0 0 6px rgba(var(--tron-rgb), 0.5);
   box-shadow: 0 0 10px rgba(var(--tron-rgb), 0.15);
+  cursor: pointer;
   transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.cover__start:hover {
+.cover__start:hover,
+.cover__training:hover {
   background: rgba(var(--tron-rgb), 0.08);
   border-color: var(--tron);
   box-shadow: 0 0 18px rgba(var(--tron-rgb), 0.35);
+}
+
+/* ---------- Difficulty selector ----------
+ * Cover-screen rectangular bar that appears once the player has more than
+ * one difficulty unlocked. Each unlocked difficulty is one coloured segment;
+ * a large CSS-triangle arrow above the bar points at the active segment
+ * (tinted in that segment's colour). Locked difficulties don't render at
+ * all -- the bar grows as the player unlocks more tiers.
+ */
+.difficulty {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  cursor: default;
+}
+
+.difficulty__bar-wrap {
+  position: relative;
+  /* Make room above the bar for the arrow. */
+  padding-top: 1.05rem;
+}
+
+/* Large downward-pointing triangle, drawn with the classic border trick so
+ * `currentColor` (set by `.difficulty__arrow--<id>`) tints the arrow body
+ * via `border-top-color`. `filter: drop-shadow` adds the tron glow that
+ * `box-shadow` can't apply to a CSS triangle. */
+.difficulty__arrow {
+  position: absolute;
+  bottom: calc(100% - 1.05rem + 0.2rem);
+  width: 0;
+  height: 0;
+  border-left:  0.6rem solid transparent;
+  border-right: 0.6rem solid transparent;
+  border-top:   0.85rem solid currentColor;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 0 6px currentColor);
+  transition: left 0.2s ease, color 0.18s ease;
+  pointer-events: none;
+  color: var(--tron-normal);
+}
+
+.difficulty__arrow--easy   { color: var(--tron-easy); }
+.difficulty__arrow--normal { color: var(--tron-normal); }
+.difficulty__arrow--hard   { color: var(--tron-hard); }
+.difficulty__arrow--insane { color: var(--tron-insane); }
+
+.difficulty__bar {
+  display: flex;
+  width: 100%;
+  height: 2.25rem;
+  overflow: hidden;
+  border: 1px solid rgba(var(--tron-rgb), 0.35);
+  box-shadow:
+    inset 0 0 10px rgba(0, 0, 0, 0.45),
+    0 0 12px rgba(var(--tron-rgb), 0.15);
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.difficulty__seg {
+  flex: 1;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: rgba(var(--frost-rgb), 0.45);
+  border: none;
+  border-right: 1px solid rgba(var(--tron-rgb), 0.18);
+  border-radius: 0; /* user-agent buttons round by default; bar clips, segments don't */
+  padding: 0;
+  font: inherit;
+  font-size: 0.65rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    text-shadow 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.difficulty__seg:last-child {
+  border-right: none;
+}
+
+.difficulty__seg:hover {
+  background: rgba(var(--tron-rgb), 0.06);
+  color: rgba(var(--frost-rgb), 0.85);
+}
+
+/* Per-difficulty active styling. Each variant tints its segment with the
+ * matching tron-sibling colour from the palette above. Inactive segments
+ * stay near-black with dim text so the active one visually pops. */
+.difficulty__seg--active.difficulty__seg--easy {
+  background: rgba(var(--tron-easy-rgb), 0.16);
+  color: var(--tron-easy);
+  text-shadow: 0 0 6px rgba(var(--tron-easy-rgb), 0.55);
+  box-shadow: inset 0 0 16px rgba(var(--tron-easy-rgb), 0.25);
+}
+
+.difficulty__seg--active.difficulty__seg--normal {
+  background: rgba(var(--tron-rgb), 0.16);
+  color: var(--tron-normal);
+  text-shadow: 0 0 6px rgba(var(--tron-rgb), 0.55);
+  box-shadow: inset 0 0 16px rgba(var(--tron-rgb), 0.25);
+}
+
+.difficulty__seg--active.difficulty__seg--hard {
+  background: rgba(var(--tron-hard-rgb), 0.16);
+  color: var(--tron-hard);
+  text-shadow: 0 0 6px rgba(var(--tron-hard-rgb), 0.55);
+  box-shadow: inset 0 0 16px rgba(var(--tron-hard-rgb), 0.25);
+}
+
+.difficulty__seg--active.difficulty__seg--insane {
+  background: rgba(var(--tron-insane-rgb), 0.16);
+  color: var(--tron-insane);
+  text-shadow: 0 0 6px rgba(var(--tron-insane-rgb), 0.55);
+  box-shadow: inset 0 0 16px rgba(var(--tron-insane-rgb), 0.25);
+}
+
+.difficulty__seg:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(var(--frost-rgb), 0.55);
 }
 
 /* ---------- Loading bar ---------- */

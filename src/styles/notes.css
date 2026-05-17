@@ -17,12 +17,18 @@
   pointer-events: auto;
 }
 
+/*
+ * Base size matches `.note__hit` so that at scale 1.0× -- which the overlay
+ * holds the ring at from the hit moment through the end of the Good window
+ * -- the approach ring lands exactly on the hit circle's outer edge. The
+ * overlay supplies the inline `transform: scale(...)` to drive the shrink.
+ */
 .note__approach {
   position: absolute;
   top: 0;
   left: 0;
-  width: 7vw;
-  height: 7vw;
+  width: 5vw;
+  height: 5vw;
   border-radius: 50%;
   border: 3px solid var(--accent);
   transform: translate(-50%, -50%);
@@ -64,9 +70,12 @@
   opacity: 0.3;
 }
 
-.note--past .note__approach {
-  opacity: 0;
-}
+/*
+ * Approach-ring opacity during the late window is driven by NoteOverlay's
+ * inline `opacity` style (it fades 0.7 → 0 across `goodWindow`), so no CSS
+ * rule for `.note--past .note__approach` is needed. Inline styles win over
+ * class rules regardless.
+ */
 
 .note--perfect .note__hit {
   background: radial-gradient(circle at 35% 30%, #fff, #ffe28a 60%, var(--perfect));

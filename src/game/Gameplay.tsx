@@ -4,13 +4,13 @@ import type { Beatmap, Judgment, Note, VideoEntry } from "./types";
 import { NoteOverlay } from "./NoteOverlay";
 import {
   DEFAULT_APPROACH,
-  GOOD_WINDOW,
-  HIT_RADIUS_NORM,
+  type DifficultyProfile,
   LIFE_MAX,
-  MISS_RESULT,
+  NORMAL_PROFILE,
   SCORE_CAP,
   comboMultiplier,
   judgeHit,
+  missResult,
 } from "./judgments";
 
 export interface GameplayResult {
@@ -26,6 +26,14 @@ export interface GameplayResult {
   failed: boolean;
 }
 
+/**
+ * Per-event signal emitted alongside the engine's internal state updates.
+ * Mirrors {@link Judgment} 1:1; surfaced as a separate type purely so the
+ * `onJudgment` callback can evolve independently of the persisted result
+ * shape.
+ */
+export type HitKind = "perfect" | "good" | "miss";
+
 interface GameplayProps {
   video: VideoEntry;
   beatmap: Beatmap;
@@ -33,6 +41,20 @@ interface GameplayProps {
   initialLife: number;
   /** Cumulative score so far across the run; HUD displays initial + local. */
   initialScore: number;
+  /**
+   * Active difficulty knobs (timing windows, hit radius, life economy).
+   * Defaults to {@link NORMAL_PROFILE} for callers that haven't yet wired a
+   * difficulty selector.
+   */
+  difficulty?: DifficultyProfile;
+  /**
+   * Per-event hook fired on every resolved note. Neutral extension point:
+   * the engine emits, listeners decide what to do with it (play SFX, log
+   * replay events, accumulate telemetry, etc.). `deltaSec` is
+   * `taps_time - note_t` for hits, and `goodWindow` (positive) for
+   * auto-miss expirations.
+   */
+  onJudgment?: (kind: HitKind, deltaSec: number) => void;
   onComplete: (result: GameplayResult) => void;
 }
 
@@ -70,8 +92,16 @@ export function Gameplay({
   beatmap,
   initialLife,
   initialScore,
+  difficulty = NORMAL_PROFILE,
+  onJudgment,
   onComplete,
 }: GameplayProps) {
+  // Keep onJudgment in a ref so applyResult / the RAF tick don't need to
+  // be rebuilt when the listener identity changes.
+  const onJudgmentRef = useRef<typeof onJudgment>(onJudgment);
+  useEffect(() => {
+    onJudgmentRef.current = onJudgment;
+  }, [onJudgment]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -109,9 +139,11 @@ export function Gameplay({
   const visibleNotes = useMemo(() => {
     if (doomedAt === null) return sortedNotes;
     return sortedNotes.filter(
-      (n) => n.t - (n.approach ?? DEFAULT_APPROACH) <= doomedAt,
+      (n) =>
+        n.t - (n.approach ?? DEFAULT_APPROACH) * difficulty.approachMul <=
+        doomedAt,
     );
-  }, [sortedNotes, doomedAt]);
+  }, [sortedNotes, doomedAt, difficulty.approachMul]);
 
   const finish = useCallback(() => {
     if (completedRef.current) return;
@@ -139,9 +171,11 @@ export function Gameplay({
 
       // Apply the combo-tier bonus multiplier off the combo count *after* this
       // hit lands, so the 10th/25th/50th/100th hit in a streak is the first to
-      // earn the new tier's payout. Misses (baseGained === 0) stay at 0.
+      // earn the new tier's payout. The per-difficulty `scoreMul` stacks on
+      // top à la osu! Easy/HR mods — Easy halves the payout, Insane doubles
+      // it. Misses (baseGained === 0) stay at 0.
       const multiplier = baseGained > 0 ? comboMultiplier(nextCombo) : 1;
-      const gained = Math.round(baseGained * multiplier);
+      const gained = Math.round(baseGained * multiplier * difficulty.scoreMul);
 
       setJudgmentsById((m) => ({ ...m, [note.id]: judgment }));
       setScore((s) => s + gained);
@@ -194,7 +228,7 @@ export function Gameplay({
         setFlashes((arr) => arr.filter((f) => f.id !== fid));
       }, 600);
     },
-    [],
+    [difficulty.scoreMul],
   );
 
   // Mirror the doomed ref into render-visible state once life crosses 0, so
@@ -208,6 +242,7 @@ export function Gameplay({
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
+    const miss = missResult(difficulty);
     let raf = 0;
     let lastSeen = -1;
     const tick = () => {
@@ -217,14 +252,15 @@ export function Gameplay({
         setCurrentTime(t);
         for (const n of visibleNotes) {
           if (resolvedRef.current.has(n.id)) continue;
-          if (t > n.t + GOOD_WINDOW) {
+          if (t > n.t + difficulty.goodWindow) {
             applyResult(
               n,
-              MISS_RESULT.judgment,
-              MISS_RESULT.lifeDelta,
-              MISS_RESULT.score,
-              MISS_RESULT.comboReset,
+              miss.judgment,
+              miss.lifeDelta,
+              miss.score,
+              miss.comboReset,
             );
+            onJudgmentRef.current?.("miss", t - n.t);
           } else {
             break;
           }
@@ -234,7 +270,7 @@ export function Gameplay({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [visibleNotes, applyResult]);
+  }, [visibleNotes, applyResult, difficulty]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -264,33 +300,43 @@ export function Gameplay({
       const x = (ev.clientX - rect.left) / rect.width;
       const y = (ev.clientY - rect.top) / rect.height;
       const t = videoRef.current?.currentTime ?? 0;
+      const radius = difficulty.hitRadiusNorm * 1.5;
       let best: { note: Note; dist: number; delta: number } | null = null;
       for (const n of visibleNotes) {
         if (resolvedRef.current.has(n.id)) continue;
-        const ap = n.approach ?? DEFAULT_APPROACH;
+        const ap = (n.approach ?? DEFAULT_APPROACH) * difficulty.approachMul;
         if (t < n.t - ap) continue;
-        if (t > n.t + GOOD_WINDOW) continue;
+        if (t > n.t + difficulty.goodWindow) continue;
         const dx = n.x - x;
         const dy = n.y - y;
         const dist = Math.hypot(dx, dy);
-        if (dist > HIT_RADIUS_NORM * 1.5) continue;
+        if (dist > radius) continue;
         if (!best || dist < best.dist) {
           best = { note: n, dist, delta: t - n.t };
         }
       }
       if (!best) return;
-      const verdict = judgeHit(best.delta);
-      if (verdict) {
-        applyResult(
-          best.note,
-          verdict.judgment,
-          verdict.lifeDelta,
-          verdict.score,
-          verdict.comboReset,
-        );
+      const verdict = judgeHit(best.delta, difficulty);
+      if (!verdict) {
+        // Tap landed inside the approach + hit-radius window but outside
+        // the good window — silently ignored, matching the canonical
+        // osu!/EBA behaviour. The note stays unresolved and the auto-miss
+        // path will eventually pick it up if no follow-up tap lands.
+        return;
       }
+      applyResult(
+        best.note,
+        verdict.judgment,
+        verdict.lifeDelta,
+        verdict.score,
+        verdict.comboReset,
+      );
+      onJudgmentRef.current?.(
+        verdict.judgment === "perfect" ? "perfect" : "good",
+        best.delta,
+      );
     },
-    [visibleNotes, applyResult],
+    [visibleNotes, applyResult, difficulty],
   );
 
   const lifePct = (life / LIFE_MAX) * 100;
@@ -311,6 +357,8 @@ export function Gameplay({
         notes={visibleNotes}
         currentTime={currentTime}
         judgments={judgmentsById}
+        goodWindow={difficulty.goodWindow}
+        approachMul={difficulty.approachMul}
       />
       <div className="hud">
         {!doomed && (

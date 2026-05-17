@@ -6,10 +6,18 @@ import { loadBeatmap } from "../game/storage";
 import { Gameplay, type GameplayResult } from "../game/Gameplay";
 import {
   ACT_THRESHOLDS,
-  LIFE_START,
+  type DifficultyProfile,
   SCORE_CAP,
+  getDifficulty,
   maxScore,
 } from "../game/judgments";
+import {
+  type Progress,
+  loadProgress,
+  selectDifficulty,
+  unlockTraining,
+  unlockedProfiles,
+} from "../game/progress";
 import {
   INITIALS_LENGTH,
   LEADERBOARD_MAX_ENTRIES,
@@ -21,12 +29,14 @@ import {
 } from "../game/leaderboard";
 import { OrientationGate } from "../game/OrientationGate";
 import { useOrientationGate } from "../game/useOrientationGate";
+import { TrainingView } from "../training/TrainingView";
 
 type Phase =
   | { kind: "cover" }
   | { kind: "play"; act: ActId; variant: Variant }
   | { kind: "cutscene"; act: ActId; variant: Variant }
   | { kind: "gameOver"; act: ActId }
+  | { kind: "training" }
   | {
       kind: "results";
       finalVariant: "passEnding" | "perfectEnding";
@@ -43,15 +53,17 @@ interface GameState {
   noteCount: number;
 }
 
-const initialGameState: GameState = {
-  life: LIFE_START,
-  score: 0,
-  maxCombo: 0,
-  perfect: 0,
-  good: 0,
-  miss: 0,
-  noteCount: 0,
-};
+function makeInitialState(difficulty: DifficultyProfile): GameState {
+  return {
+    life: difficulty.lifeStart,
+    score: 0,
+    maxCombo: 0,
+    perfect: 0,
+    good: 0,
+    miss: 0,
+    noteCount: 0,
+  };
+}
 
 function mergeSectionResult(prev: GameState, r: GameplayResult): GameState {
   return {
@@ -65,8 +77,12 @@ function mergeSectionResult(prev: GameState, r: GameplayResult): GameState {
   };
 }
 
-function pickBranch(act: ActId, result: GameplayResult): Variant {
-  const max = maxScore(result.noteCount);
+function pickBranch(
+  act: ActId,
+  result: GameplayResult,
+  difficulty: DifficultyProfile,
+): Variant {
+  const max = maxScore(result.noteCount, difficulty);
   const fraction = max === 0 ? 1 : result.score / max;
   if (act === 3) {
     return fraction >= ACT_THRESHOLDS.highFraction ? "perfectEnding" : "passEnding";
@@ -76,8 +92,15 @@ function pickBranch(act: ActId, result: GameplayResult): Variant {
 
 export function PlayerView() {
   const { blocked } = useOrientationGate();
+  const [progress, setProgress] = useState<Progress>(() => loadProgress());
+  const activeDifficulty = useMemo(
+    () => getDifficulty(progress.selected),
+    [progress.selected],
+  );
   const [phase, setPhase] = useState<Phase>({ kind: "cover" });
-  const [gameState, setGameState] = useState<GameState>(initialGameState);
+  const [gameState, setGameState] = useState<GameState>(() =>
+    makeInitialState(activeDifficulty),
+  );
   const [loadedIds, setLoadedIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -96,15 +119,24 @@ export function PlayerView() {
   }, []);
 
   const reset = useCallback(() => {
-    setGameState(initialGameState);
+    setGameState(makeInitialState(activeDifficulty));
     setPhase({ kind: "cover" });
-  }, []);
+  }, [activeDifficulty]);
 
   const handleStart = useCallback(() => {
     if (blocked) return;
-    setGameState(initialGameState);
+    setGameState(makeInitialState(activeDifficulty));
     setPhase({ kind: "play", act: 1, variant: "main" });
+  }, [blocked, activeDifficulty]);
+
+  const handleTraining = useCallback(() => {
+    if (blocked) return;
+    setPhase({ kind: "training" });
   }, [blocked]);
+
+  const handleSelectDifficulty = useCallback((id: string) => {
+    setProgress((prev) => selectDifficulty(id, prev));
+  }, []);
 
   const handleComplete = useCallback(
     (act: ActId, variant: Variant, result: GameplayResult) => {
@@ -112,6 +144,10 @@ export function PlayerView() {
       setGameState(nextState);
 
       if (result.failed) {
+        // Any first defeat reveals the Training entry point on the cover
+        // screen. Idempotent on subsequent losses.
+        setProgress((prev) => unlockTraining(prev));
+
         // pass/success clips are transition clips that morph the dragon into
         // the next act's color. If the player dies inside one, route to that
         // next act's failure cutscene so the dragon doesn't visually revert.
@@ -125,7 +161,11 @@ export function PlayerView() {
       }
 
       if (variant === "main") {
-        setPhase({ kind: "play", act, variant: pickBranch(act, result) });
+        setPhase({
+          kind: "play",
+          act,
+          variant: pickBranch(act, result, activeDifficulty),
+        });
         return;
       }
 
@@ -139,7 +179,7 @@ export function PlayerView() {
       const nextAct = (act + 1) as ActId;
       setPhase({ kind: "play", act: nextAct, variant: "main" });
     },
-    [gameState],
+    [gameState, activeDifficulty],
   );
 
   const handleCutsceneEnded = useCallback(
@@ -157,8 +197,16 @@ export function PlayerView() {
       <VideoPreloader onLoaded={markLoaded} />
 
       {phase.kind === "cover" && (
-        <CoverScreen blocked={blocked} onStart={handleStart} />
+        <CoverScreen
+          blocked={blocked}
+          onStart={handleStart}
+          onTraining={handleTraining}
+          progress={progress}
+          onSelectDifficulty={handleSelectDifficulty}
+        />
       )}
+
+      {phase.kind === "training" && <TrainingView onQuit={reset} />}
 
       {phase.kind === "play" && (
         <PlayPhase
@@ -166,6 +214,7 @@ export function PlayerView() {
           variant={phase.variant}
           initialLife={gameState.life}
           initialScore={gameState.score}
+          difficulty={activeDifficulty}
           onComplete={(r) => handleComplete(phase.act, phase.variant, r)}
         />
       )}
@@ -206,20 +255,132 @@ export function PlayerView() {
 interface CoverScreenProps {
   blocked: boolean;
   onStart: () => void;
+  onTraining: () => void;
+  progress: Progress;
+  onSelectDifficulty: (id: string) => void;
 }
 
-function CoverScreen({ blocked, onStart }: CoverScreenProps) {
+function CoverScreen({
+  blocked,
+  onStart,
+  onTraining,
+  progress,
+  onSelectDifficulty,
+}: CoverScreenProps) {
+  const unlocked = useMemo(() => unlockedProfiles(progress), [progress]);
+  const showSelector = !blocked && unlocked.length > 1;
+  const showTraining = !blocked && progress.trainingUnlocked;
+
   return (
     <div className="cover" onClick={blocked ? undefined : onStart}>
       <img className="cover__art" src={COVER_ART} alt="Pilot cover art" />
       {!blocked && (
         <div className="cover__prompt">
+          {showSelector && (
+            <DifficultySelector
+              unlocked={unlocked}
+              selected={progress.selected}
+              onChange={onSelectDifficulty}
+            />
+          )}
           <button className="cover__start" type="button" onClick={onStart}>
             Click to start
           </button>
+          {showTraining && (
+            <button
+              className="cover__training"
+              type="button"
+              // Stop propagation so clicking Training doesn't also trigger
+              // the cover's "click anywhere to start" handler.
+              onClick={(e) => {
+                e.stopPropagation();
+                onTraining();
+              }}
+            >
+              Training
+            </button>
+          )}
         </div>
       )}
       {blocked && <OrientationGate />}
+    </div>
+  );
+}
+
+interface DifficultySelectorProps {
+  unlocked: DifficultyProfile[];
+  selected: string;
+  onChange: (id: string) => void;
+}
+
+/**
+ * Rectangular segmented selector that lives above "Click to start" on the
+ * cover screen. Only unlocked difficulties are rendered; each is one
+ * coloured segment (tron-blue for Normal, tron-green/orange/red for the
+ * other tiers via `.difficulty__seg--<id>` modifier classes). A large CSS-
+ * triangle arrow sits above the bar and slides to centre over the active
+ * segment, tinted in that segment's colour. Click/pointer/touch events stop
+ * propagation so picking a difficulty doesn't trip the cover's "click
+ * anywhere to start" handler.
+ */
+function DifficultySelector({
+  unlocked,
+  selected,
+  onChange,
+}: DifficultySelectorProps) {
+  const selectedIndex = Math.max(
+    0,
+    unlocked.findIndex((d) => d.id === selected),
+  );
+  // Centre of segment i is at ((i + 0.5) / N) * 100%.
+  const arrowLeftPct = ((selectedIndex + 0.5) / unlocked.length) * 100;
+  const activeId = unlocked[selectedIndex]?.id ?? selected;
+
+  const stop = (ev: React.SyntheticEvent) => {
+    ev.stopPropagation();
+  };
+
+  return (
+    <div
+      className="difficulty"
+      onClick={stop}
+      onPointerDown={stop}
+      onTouchStart={stop}
+    >
+      <div className="difficulty__bar-wrap">
+        <span
+          className={`difficulty__arrow difficulty__arrow--${activeId}`}
+          style={{ left: `${arrowLeftPct}%` }}
+          aria-hidden="true"
+        />
+        <div
+          className="difficulty__bar"
+          role="radiogroup"
+          aria-label="Difficulty"
+        >
+          {unlocked.map((d) => {
+            const active = d.id === selected;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                className={
+                  `difficulty__seg difficulty__seg--${d.id}` +
+                  (active ? " difficulty__seg--active" : "")
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange(d.id);
+                }}
+              >
+                {d.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -229,10 +390,18 @@ interface PlayPhaseProps {
   variant: Variant;
   initialLife: number;
   initialScore: number;
+  difficulty: DifficultyProfile;
   onComplete: (r: GameplayResult) => void;
 }
 
-function PlayPhase({ act, variant, initialLife, initialScore, onComplete }: PlayPhaseProps) {
+function PlayPhase({
+  act,
+  variant,
+  initialLife,
+  initialScore,
+  difficulty,
+  onComplete,
+}: PlayPhaseProps) {
   const video = useMemo(() => getVideo(act, variant), [act, variant]);
   const beatmap = useMemo(() => loadBeatmap(video.id), [video.id]);
   return (
@@ -242,6 +411,7 @@ function PlayPhase({ act, variant, initialLife, initialScore, onComplete }: Play
       beatmap={beatmap}
       initialLife={initialLife}
       initialScore={initialScore}
+      difficulty={difficulty}
       onComplete={onComplete}
     />
   );
