@@ -14,7 +14,7 @@ const MEDIA_BASE = (
   (import.meta.env?.VITE_MEDIA_BASE_URL as string | undefined) ?? ""
 ).replace(/\/+$/, "");
 
-const videos = (path: string) =>
+export const videos = (path: string) =>
   `${MEDIA_BASE}/media/videos/${encodeURIComponent(path)}`;
 const cleanVideos = (base: string) =>
   `/media/videos-clean/${encodeURIComponent(`${base} - no music`)}.mp4`;

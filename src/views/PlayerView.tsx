@@ -13,9 +13,10 @@ import {
 } from "../game/judgments";
 import {
   type Progress,
+  applyDefeat,
+  applyVictory,
   loadProgress,
   selectDifficulty,
-  unlockTraining,
   unlockedProfiles,
 } from "../game/progress";
 import {
@@ -144,9 +145,10 @@ export function PlayerView() {
       setGameState(nextState);
 
       if (result.failed) {
-        // Any first defeat reveals the Training entry point on the cover
-        // screen. Idempotent on subsequent losses.
-        setProgress((prev) => unlockTraining(prev));
+        // Defeats unlock Training (first time) and, if the run was on Normal,
+        // reveal Easy as a softer fallback. Higher-difficulty defeats only
+        // unlock Training -- see `applyDefeat` for the policy.
+        setProgress((prev) => applyDefeat(activeDifficulty.id, prev));
 
         // pass/success clips are transition clips that morph the dragon into
         // the next act's color. If the player dies inside one, route to that
@@ -171,6 +173,9 @@ export function PlayerView() {
 
       if (act === 3) {
         if (variant === "passEnding" || variant === "perfectEnding") {
+          // Clearing the run on Normal unlocks Hard; clearing it on Hard
+          // unlocks Insane. Pass and Perfect endings both count as wins.
+          setProgress((prev) => applyVictory(activeDifficulty.id, prev));
           setPhase({ kind: "results", finalVariant: variant, totals: nextState });
         }
         return;

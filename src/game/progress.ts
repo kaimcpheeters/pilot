@@ -1,5 +1,8 @@
 import {
   DIFFICULTIES,
+  EASY_PROFILE,
+  HARD_PROFILE,
+  INSANE_PROFILE,
   NORMAL_PROFILE,
   type DifficultyProfile,
 } from "./judgments";
@@ -134,4 +137,48 @@ export function unlockTraining(current: Progress): Progress {
 export function unlockedProfiles(progress: Progress): DifficultyProfile[] {
   const unlocked = new Set(progress.unlocked);
   return DIFFICULTIES.filter((d) => unlocked.has(d.id));
+}
+
+/**
+ * Apply the progress updates earned by losing a run on the given difficulty:
+ *
+ * - Training always unlocks on the first defeat (idempotent thereafter).
+ * - A defeat *specifically on Normal* reveals Easy as an escape hatch so the
+ *   player has somewhere softer to retreat to.
+ *
+ * Losing on Easy / Hard / Insane only unlocks Training -- we don't want to
+ * hand out Easy to someone who's already grinding Insane.
+ */
+export function applyDefeat(
+  difficultyId: string,
+  current: Progress,
+): Progress {
+  let next = unlockTraining(current);
+  if (difficultyId === NORMAL_PROFILE.id) {
+    next = unlockDifficulty(EASY_PROFILE.id, next);
+  }
+  return next;
+}
+
+/**
+ * Apply the progress updates earned by clearing a run on the given
+ * difficulty:
+ *
+ * - Beating Normal reveals Hard.
+ * - Beating Hard reveals Insane.
+ *
+ * Wins on Easy or Insane don't unlock anything new (Easy is the floor; Insane
+ * is the ceiling).
+ */
+export function applyVictory(
+  difficultyId: string,
+  current: Progress,
+): Progress {
+  if (difficultyId === NORMAL_PROFILE.id) {
+    return unlockDifficulty(HARD_PROFILE.id, current);
+  }
+  if (difficultyId === HARD_PROFILE.id) {
+    return unlockDifficulty(INSANE_PROFILE.id, current);
+  }
+  return current;
 }
