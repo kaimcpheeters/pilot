@@ -1,0 +1,200 @@
+/* ---------- HUD ----------
+ * Imported by the player (Gameplay) and by the style guide (which renders
+ * a static preview of the energy meter under /style-guide). Kept in one
+ * place so the two stay visually in sync.
+ */
+
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hud__top {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.hud__energy {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 62%;
+  user-select: none;
+}
+
+.hud__energy-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.36em;
+  text-transform: uppercase;
+  color: rgba(var(--frost-rgb), 0.92);
+  text-shadow:
+    0 0 6px rgba(var(--tron-rgb), 0.55),
+    0 0 14px rgba(var(--tron-rgb), 0.25);
+  white-space: nowrap;
+}
+
+.hud__energy-track {
+  position: relative;
+  flex: 1;
+  height: 16px;
+  background:
+    linear-gradient(180deg, rgba(var(--abyss-rgb), 0.85), rgba(var(--void-rgb), 0.95));
+  border: 1px solid rgba(var(--tron-rgb), 0.38);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 0 10px rgba(0, 0, 0, 0.7),
+    0 0 12px rgba(var(--tron-rgb), 0.18);
+  overflow: hidden;
+  clip-path: polygon(
+    7px 0,
+    100% 0,
+    100% calc(100% - 7px),
+    calc(100% - 7px) 100%,
+    0 100%,
+    0 7px
+  );
+}
+
+/* Faint vertical scale ticks inside the track */
+.hud__energy-track::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(var(--tron-rgb), 0.08) 0,
+    rgba(var(--tron-rgb), 0.08) 1px,
+    transparent 1px,
+    transparent 12px
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.hud__energy-fill {
+  position: relative;
+  height: 100%;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%),
+    linear-gradient(90deg, var(--glow) 0%, var(--tron) 55%, var(--frost) 100%);
+  box-shadow:
+    inset 0 0 10px rgba(255, 255, 255, 0.4),
+    0 0 12px rgba(var(--tron-rgb), 0.55),
+    0 0 26px rgba(var(--tron-rgb), 0.3);
+  transition: width 0.18s cubic-bezier(0.2, 0.7, 0.2, 1),
+              background 0.3s ease,
+              box-shadow 0.3s ease;
+  overflow: hidden;
+}
+
+.hud__energy-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    transparent 38%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 62%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  animation: energy-shimmer 2.6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes energy-shimmer {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(110%); }
+}
+
+/* Crackling leading edge */
+.hud__energy-edge {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  right: -2px;
+  width: 3px;
+  background: linear-gradient(180deg, #ffffff 0%, var(--frost) 45%, var(--tron) 70%, #ffffff 100%);
+  box-shadow:
+    0 0 6px rgba(255, 255, 255, 0.95),
+    0 0 14px rgba(var(--tron-rgb), 0.9),
+    0 0 24px rgba(var(--tron-rgb), 0.6);
+  animation: energy-crackle 0.22s steps(1, end) infinite;
+  pointer-events: none;
+}
+
+@keyframes energy-crackle {
+  0%   { opacity: 1;    transform: translateY(0)   scaleY(1); }
+  20%  { opacity: 0.85; transform: translateY(-1px) scaleY(0.96); }
+  40%  { opacity: 1;    transform: translateY(1px)  scaleY(1.04); }
+  60%  { opacity: 0.9;  transform: translateY(0)   scaleY(0.98); }
+  80%  { opacity: 1;    transform: translateY(-1px) scaleY(1.02); }
+  100% { opacity: 0.95; transform: translateY(0)   scaleY(1); }
+}
+
+/* Low-energy state: shift to a warning-amber electric */
+.hud__energy--low .hud__energy-track {
+  border-color: rgba(255, 138, 76, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 0 10px rgba(0, 0, 0, 0.7),
+    0 0 14px rgba(255, 94, 108, 0.25);
+}
+
+.hud__energy--low .hud__energy-fill {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%),
+    linear-gradient(90deg, #c61d36 0%, #ff7a3d 55%, var(--perfect) 100%);
+  box-shadow:
+    inset 0 0 10px rgba(255, 255, 255, 0.4),
+    0 0 12px rgba(255, 94, 108, 0.6),
+    0 0 26px rgba(255, 94, 108, 0.35);
+  animation: energy-low-pulse 0.9s ease-in-out infinite;
+}
+
+.hud__energy--low .hud__energy-edge {
+  background: linear-gradient(180deg, #ffffff 0%, var(--perfect) 45%, #ff7a3d 70%, #ffffff 100%);
+  box-shadow:
+    0 0 6px rgba(255, 255, 255, 0.95),
+    0 0 14px rgba(255, 138, 76, 0.95),
+    0 0 24px rgba(255, 94, 108, 0.65);
+}
+
+.hud__energy--low .hud__energy-label {
+  color: rgba(255, 210, 74, 0.95);
+  text-shadow:
+    0 0 6px rgba(255, 138, 76, 0.6),
+    0 0 14px rgba(255, 94, 108, 0.3);
+}
+
+@keyframes energy-low-pulse {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.25); }
+}
+
+.hud__corner--tr {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  text-align: right;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+
+.hud__score {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.hud__combo {
+  font-size: 1.1rem;
+  color: var(--accent);
+  margin-top: 0.1rem;
+}

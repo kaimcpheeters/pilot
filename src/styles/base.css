@@ -1,0 +1,101 @@
+:root {
+  color-scheme: dark;
+
+  /* ===== Cover Art Palette (always available globally) =====
+   * Sampled from public/media/images/coverart.png. Hue locked around ~200°.
+   * These are the source of truth for the cover-art design system. The
+   * player view (.screen) and style guide (.sg) opt in by re-mapping
+   * their semantic tokens to these swatches; other views (editor, audio
+   * compare) keep the original neutral-dark tokens defined below.
+   */
+  --void:   #000000;
+  --abyss:  #06121a;
+  --steel:  #13293a;
+  --cobalt: #204e6f;
+  --glow:   #50a8d6;
+  --cyan:   #80d4ee;
+  --core:   #acecfb;
+  --frost:  #e6f6fb;
+
+  --void-rgb:    0,   0,   0;
+  --abyss-rgb:   6,  18,  26;
+  --steel-rgb:  19,  41,  58;
+  --cobalt-rgb: 32,  78, 111;
+  --glow-rgb:   80, 168, 214;
+  --cyan-rgb:  128, 212, 238;
+  --core-rgb:  172, 236, 251;
+  --frost-rgb: 230, 246, 251;
+
+  /* ===== Semantic tokens — original neutral-dark palette =====
+   * Used by the editor, audio compare, and any other surface that doesn't
+   * opt in to the cover-art palette. The player view overrides these inside
+   * .screen { ... } (see player.css); the style guide does the same inside
+   * .sg { ... } (see style-guide.css).
+   */
+  --bg:           #0a0a0f;
+  --bg-soft:      #14141d;
+  --panel:        #1b1b27;
+  --panel-2:      #232333;
+  --line:         #2c2c40;
+  --text:         #f4f4ff;
+  --text-dim:     #a0a0bb;
+
+  --accent:       #ff3da4;
+  --accent-rgb:   255, 61, 164;
+  --accent-2:     #5dd0ff;
+  --accent-2-rgb: 93, 208, 255;
+  --tron:         #6df1ff;
+  --tron-rgb:     109, 241, 255;
+
+  /* Functional / state colors (used everywhere) */
+  --good:    #5dd0ff;
+  --perfect: #ffd24a;
+  --miss:    #ff5e6c;
+  --danger:  #ff5e6c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  padding: 0.55rem 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.05s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+button:hover {
+  background: var(--panel);
+  border-color: var(--accent);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+input[type="number"], select {
+  font: inherit;
+  background: var(--bg-soft);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+}
+
+a {
+  color: var(--accent-2);
+}

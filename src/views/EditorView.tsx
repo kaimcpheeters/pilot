@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import "../styles/editor.css";
 import { EDITABLE_VIDEOS } from "../game/manifest";
 import type { ActId, Beatmap, Note, VideoEntry } from "../game/types";
 import {

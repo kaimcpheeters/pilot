@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import "../styles/style-guide.css";
+import "../styles/hud.css";
 import { COVER_ART } from "../game/manifest";
 
 /**

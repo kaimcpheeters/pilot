@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import "../styles/hud.css";
 import type { Beatmap, Judgment, Note, VideoEntry } from "./types";
 import { NoteOverlay } from "./NoteOverlay";
 import {

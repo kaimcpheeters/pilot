@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import "../styles/player.css";
 import type { ActId, Variant, VideoEntry } from "../game/types";
 import { COVER_ART, VIDEO_MANIFEST, getVideo } from "../game/manifest";
 import { loadBeatmap } from "../game/storage";
@@ -173,9 +173,6 @@ function CoverScreen({ blocked, onStart }: CoverScreenProps) {
           <button className="cover__start" type="button" onClick={onStart}>
             Click to start
           </button>
-          <Link className="cover__editor-link" to="/editor" onClick={(e) => e.stopPropagation()}>
-            Open beatmap editor
-          </Link>
         </div>
       )}
       {blocked && <OrientationGate />}

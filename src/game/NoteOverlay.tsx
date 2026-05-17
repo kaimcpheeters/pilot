@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import "../styles/notes.css";
 import type { Judgment, Note } from "./types";
 import { DEFAULT_APPROACH } from "./judgments";
 

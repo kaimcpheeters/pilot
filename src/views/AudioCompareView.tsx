@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import "../styles/audio-compare.css";
 
 const CLIP_BASES: ReadonlyArray<string> = [
   "1 - Knight vs Green Electric Dragon",

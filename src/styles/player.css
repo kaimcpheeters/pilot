@@ -1,0 +1,301 @@
+/* ===== Player view opts in to the cover-art palette =====
+ * .screen is the wrapper around PlayerView (cover, gameplay, cutscenes,
+ * end screens). Overriding the semantic tokens here scopes the new
+ * palette to just the player without touching editor/audio surfaces.
+ * RGB triplets are duplicated as literals because nested var() inside
+ * rgba() does not reliably substitute across all browsers.
+ */
+.screen {
+  --bg:           var(--void);
+  --bg-soft:      var(--abyss);
+  --panel:        #0a1e2c;
+  --panel-2:      var(--steel);
+  --line:         #1a3d56;
+  --text:         var(--frost);
+  --text-dim:     #7a96aa;
+
+  --accent:       var(--glow);
+  --accent-rgb:   80, 168, 214;
+  --accent-2:     var(--cyan);
+  --accent-2-rgb: 128, 212, 238;
+  --tron:         var(--core);
+  --tron-rgb:     172, 236, 251;
+
+  --good:         var(--cyan);
+}
+
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+/* ---------- Cover ---------- */
+
+.cover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.cover__art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.7) saturate(1.1);
+}
+
+.cover__prompt {
+  position: absolute;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.cover__start {
+  font-size: 0.85rem;
+  padding: 0.65rem 2rem;
+  border-radius: 2px;
+  background: transparent;
+  border: 1px solid rgba(var(--tron-rgb), 0.55);
+  color: var(--tron);
+  font-weight: 500;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  text-shadow: 0 0 6px rgba(var(--tron-rgb), 0.5);
+  box-shadow: 0 0 10px rgba(var(--tron-rgb), 0.15);
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cover__start:hover {
+  background: rgba(var(--tron-rgb), 0.08);
+  border-color: var(--tron);
+  box-shadow: 0 0 18px rgba(var(--tron-rgb), 0.35);
+}
+
+/* ---------- Orientation gate ---------- */
+
+.orientation-gate {
+  position: absolute;
+  inset: 0;
+  background: rgba(var(--abyss-rgb), 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.orientation-gate__inner {
+  max-width: 32rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+.orientation-gate__icon {
+  color: var(--accent-2);
+  margin-bottom: 1rem;
+  animation: tilt 2.2s ease-in-out infinite;
+  display: inline-flex;
+}
+
+@keyframes tilt {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-90deg); }
+}
+
+.orientation-gate h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.6rem;
+}
+
+.orientation-gate p {
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ---------- Gameplay ---------- */
+
+.gameplay {
+  position: absolute;
+  inset: 0;
+  background: black;
+  user-select: none;
+  touch-action: none;
+}
+
+.gameplay__video, .branch__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: black;
+}
+
+.branch {
+  position: absolute;
+  inset: 0;
+  background: black;
+}
+
+/* ---------- Flashes ---------- */
+
+.flashes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.flash {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+  animation: flash 0.6s ease-out forwards;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+}
+
+.flash--perfect { color: var(--perfect); }
+.flash--good { color: var(--good); }
+.flash--miss { color: var(--miss); }
+
+@keyframes flash {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.6); }
+  20% { opacity: 1; transform: translate(-50%, -60%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -110%) scale(1); }
+}
+
+/* ---------- End screens ---------- */
+
+.end {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at center, rgba(var(--tron-rgb), 0.08), rgba(0, 0, 0, 0) 60%),
+    linear-gradient(180deg, var(--abyss) 0%, var(--void) 100%);
+  text-align: center;
+  padding: 2rem;
+  gap: 1.75rem;
+  color: var(--text);
+}
+
+.end__title {
+  font-size: 2.4rem;
+  margin: 0;
+  font-weight: 300;
+  letter-spacing: 0.45em;
+  text-transform: uppercase;
+  color: var(--tron);
+  text-shadow:
+    0 0 8px rgba(var(--tron-rgb), 0.45),
+    0 0 24px rgba(var(--tron-rgb), 0.2);
+  padding-left: 0.45em; /* visually balance the wide tracking */
+  position: relative;
+}
+
+.end__title::before,
+.end__title::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 12rem;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--tron-rgb), 0) 0%,
+    rgba(var(--tron-rgb), 0.55) 50%,
+    rgba(var(--tron-rgb), 0) 100%
+  );
+  transform: translateX(-50%);
+}
+
+.end__title::before { top: -0.9rem; }
+.end__title::after { bottom: -0.9rem; }
+
+.end__sub {
+  color: var(--text-dim);
+  margin: 0;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+}
+
+.end__stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(96px, 1fr));
+  gap: 0.75rem;
+  margin: 0.25rem 0 0.5rem;
+  max-width: 760px;
+  width: 100%;
+}
+
+.end__stats > div {
+  background: rgba(var(--abyss-rgb), 0.65);
+  border: 1px solid rgba(var(--tron-rgb), 0.28);
+  border-radius: 2px;
+  padding: 0.85rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  box-shadow:
+    inset 0 0 12px rgba(var(--tron-rgb), 0.05),
+    0 0 8px rgba(var(--tron-rgb), 0.06);
+}
+
+.end__stats span {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+}
+
+.end__stats strong {
+  font-size: 1.5rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--tron);
+  text-shadow: 0 0 6px rgba(var(--tron-rgb), 0.4);
+}
+
+.end__action {
+  font-size: 0.85rem;
+  padding: 0.65rem 2.2rem;
+  border-radius: 2px;
+  background: transparent;
+  border: 1px solid rgba(var(--tron-rgb), 0.55);
+  color: var(--tron);
+  font-weight: 500;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  text-shadow: 0 0 6px rgba(var(--tron-rgb), 0.5);
+  box-shadow:
+    inset 0 0 8px rgba(var(--tron-rgb), 0.12),
+    0 0 10px rgba(var(--tron-rgb), 0.15);
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.end__action:hover {
+  background: rgba(var(--tron-rgb), 0.08);
+  border-color: var(--tron);
+  box-shadow:
+    inset 0 0 12px rgba(var(--tron-rgb), 0.22),
+    0 0 18px rgba(var(--tron-rgb), 0.35);
+}
