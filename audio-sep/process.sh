@@ -1,21 +1,41 @@
 #!/usr/bin/env bash
-# Strip music from all videos in public/media/videos/, keeping speech + SFX.
+# Strip music from every video in the player's media folder, keeping speech + SFX.
 # Uses ZFTurbo's BandIt Plus DnR (speech / music / effects 3-stem split).
+#
+# Layout (relative to this script):
+#   data/audio_in/   raw WAVs extracted from each MP4
+#   data/audio_out/  per-clip stems written by BandIt (speech.wav, music.wav, effects.wav)
+#   data/videos_out/ remuxed MP4s with the music stem dropped
+#   weights/         BandIt config + checkpoint (see weights/README.md to fetch)
+#   mss/             vendored ZFTurbo/Music-Source-Separation-Training (see README.md)
 
 set -euo pipefail
 
 cd "$(dirname "$0")"
 ROOT="$(pwd)"
-VIDEOS_SRC="/Users/kai/src/pilot/public/media/videos"
-VIDEOS_OUT="$ROOT/videos_out"
-AUDIO_IN="$ROOT/audio_in"
-AUDIO_OUT="$ROOT/audio_out"
+REPO_ROOT="$(cd "$ROOT/.." && pwd)"
+VIDEOS_SRC="${VIDEOS_SRC:-$REPO_ROOT/public/media/videos}"
+DATA="$ROOT/data"
+AUDIO_IN="$DATA/audio_in"
+AUDIO_OUT="$DATA/audio_out"
+VIDEOS_OUT="$DATA/videos_out"
 MSS="$ROOT/mss"
 WEIGHTS="$ROOT/weights"
+VENV="${VENV:-$REPO_ROOT/.venv-audio}"
 
-mkdir -p "$VIDEOS_OUT" "$AUDIO_IN" "$AUDIO_OUT"
+mkdir -p "$AUDIO_IN" "$AUDIO_OUT" "$VIDEOS_OUT"
 
-source "$ROOT/../.venv-audio/bin/activate"
+if [[ ! -d "$MSS" || ! -f "$MSS/inference.py" ]]; then
+  echo "ERROR: $MSS is missing. See audio-sep/README.md for how to clone it." >&2
+  exit 1
+fi
+if [[ ! -f "$WEIGHTS/model_bandit_plus_dnr_sdr_11.47.chpt" ]]; then
+  echo "ERROR: BandIt checkpoint missing. See audio-sep/weights/README.md." >&2
+  exit 1
+fi
+
+# shellcheck disable=SC1091
+source "$VENV/bin/activate"
 
 echo "=== Step 1/3: extract audio to WAV ==="
 shopt -s nullglob

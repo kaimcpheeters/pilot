@@ -18,8 +18,10 @@ import librosa
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-AUDIO_OUT = HERE / "audio_out"
-JSON_OUT = HERE / "bpm.json"
+AUDIO_SEP_ROOT = HERE.parent
+DATA = AUDIO_SEP_ROOT / "data"
+AUDIO_OUT = DATA / "audio_out"
+JSON_OUT = DATA / "bpm.json"
 
 # Plausible song-BPM window. Constrains beat_track so it doesn't pick a
 # half/double-time octave that's clearly out of range for game music.
@@ -76,7 +78,7 @@ def estimate_one(path: Path) -> dict:
     spread = float(max(candidates) - min(candidates)) if len(candidates) >= 2 else 0.0
 
     return {
-        "file": path.relative_to(HERE).as_posix(),
+        "file": path.relative_to(AUDIO_SEP_ROOT).as_posix(),
         "duration_s": round(duration, 2),
         "bpm_beat_track": round(bpm_bt, 2) if np.isfinite(bpm_bt) else None,
         "bpm_static": round(bpm_static, 2) if np.isfinite(bpm_static) else None,

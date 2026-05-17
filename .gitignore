@@ -1,9 +1,38 @@
+# ===== Node / Vite =====
 node_modules
 dist
-.DS_Store
-*.local
 .vite
+*.local
+*.tsbuildinfo
 
-# Editor caches
+# Generated when `tsc -b` resolves the vite.config tsproject
+vite.config.js
+vite.config.d.ts
+
+# ===== OS / editor =====
+.DS_Store
 .vscode/*
 !.vscode/extensions.json
+
+# ===== Python (audio-sep) =====
+.venv
+.venv-audio
+__pycache__/
+*.pyc
+
+# ===== audio-sep pipeline =====
+# Generated stems, extracted WAVs, remuxed MP4s.
+audio-sep/data/
+
+# Large model checkpoints — fetched per audio-sep/weights/README.md.
+audio-sep/weights/*.chpt
+audio-sep/weights/*.ckpt
+audio-sep/weights/*.pt
+
+# Vendored ZFTurbo MSS toolkit; clone separately per audio-sep/README.md.
+audio-sep/mss/
+
+# ===== Media =====
+# Source + cleaned gameplay videos are large; not checked in.
+public/media/videos/
+public/media/videos-clean/
