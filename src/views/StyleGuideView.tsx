@@ -35,6 +35,26 @@ const FUNCTIONAL_COLORS: ReadonlyArray<{ name: string; hex: string; role: string
   { name: "Miss",    hex: "#ff5e6c", role: "Missed note · danger" },
 ];
 
+type ComboTierPreview = "base" | "rising" | "hot" | "gold" | "apex";
+
+interface ScoreTierPreview {
+  label: string;
+  score: string;
+  combo: number;
+  tier: ComboTierPreview;
+  delta?: { amount: number; kind: "perfect" | "good" };
+}
+
+/** Static snapshots of the in-game score widget at each combo escalation tier. */
+const SCORE_TIER_PREVIEWS: ReadonlyArray<ScoreTierPreview> = [
+  { label: "Idle", score: "0", combo: 0, tier: "base" },
+  { label: "Hit · Good", score: "1,200", combo: 4, tier: "base", delta: { amount: 100, kind: "good" } },
+  { label: "Rising · 10", score: "8,400", combo: 12, tier: "rising", delta: { amount: 300, kind: "perfect" } },
+  { label: "Hot · 25", score: "21,300", combo: 28, tier: "hot", delta: { amount: 300, kind: "perfect" } },
+  { label: "Gold · 50", score: "52,700", combo: 64, tier: "gold", delta: { amount: 300, kind: "perfect" } },
+  { label: "Apex · 100+", score: "128,400", combo: 142, tier: "apex", delta: { amount: 300, kind: "perfect" } },
+];
+
 /**
  * Semantic CSS-variable tokens defined in `src/styles.css`. Each maps onto
  * a cover-art palette swatch above. Values shown here are the resolved
@@ -217,6 +237,42 @@ export function StyleGuideView() {
                 <div className="hud__energy-edge" />
               </div>
             </div>
+          </div>
+
+          <div className="sg__score-row">
+            {SCORE_TIER_PREVIEWS.map((p) => (
+              <div key={p.label} className="sg__score-cell">
+                <div className="sg__score-cell-label">{p.label}</div>
+                <div className="hud__corner hud__corner--tr sg__score-mock">
+                  <div className="hud__score">
+                    <span className="hud__score-label">Score</span>
+                    <span className="hud__score-num">{p.score}</span>
+                    {p.delta && (
+                      <div className="hud__score-deltas" aria-hidden="true">
+                        <div
+                          className={`hud__score-delta hud__score-delta--${p.delta.kind}`}
+                          style={{ animation: "none", opacity: 1, transform: "none" }}
+                        >
+                          +{p.delta.amount}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className={`hud__combo hud__combo--${p.tier}`}>
+                    {p.combo > 1 ? (
+                      <>
+                        <span className="hud__combo-num" style={{ animation: "none" }}>
+                          {p.combo}
+                        </span>
+                        <span className="hud__combo-label">combo</span>
+                      </>
+                    ) : (
+                      <span className="hud__combo-placeholder" aria-hidden="true">0</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

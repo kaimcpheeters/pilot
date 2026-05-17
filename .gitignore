@@ -36,3 +36,4 @@ audio-sep/mss/
 # Source + cleaned gameplay videos are large; not checked in.
 public/media/videos/
 public/media/videos-clean/
+.frame-compare/

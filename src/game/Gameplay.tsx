@@ -41,6 +41,28 @@ interface JudgmentFlash {
   kind: Judgment;
 }
 
+interface ScoreDelta {
+  id: number;
+  amount: number;
+  kind: Judgment;
+}
+
+type ComboTier = "base" | "rising" | "hot" | "gold" | "apex";
+
+function comboTier(combo: number): ComboTier {
+  if (combo >= 100) return "apex";
+  if (combo >= 50) return "gold";
+  if (combo >= 25) return "hot";
+  if (combo >= 10) return "rising";
+  return "base";
+}
+
+/** Combo counts that earn a milestone burst above the combo readout. */
+function isComboMilestone(c: number): boolean {
+  if (c === 10 || c === 25 || c === 50 || c === 100) return true;
+  return c > 100 && c % 50 === 0;
+}
+
 export function Gameplay({
   video,
   beatmap,
@@ -63,6 +85,9 @@ export function Gameplay({
   const [life, setLife] = useState(() => Math.max(0, Math.min(LIFE_MAX, initialLife)));
   const [judgmentsById, setJudgmentsById] = useState<Record<string, Judgment | undefined>>({});
   const [flashes, setFlashes] = useState<JudgmentFlash[]>([]);
+  const [scoreDeltas, setScoreDeltas] = useState<ScoreDelta[]>([]);
+  const [comboBurst, setComboBurst] = useState<{ id: number; value: number } | null>(null);
+  const [comboBroken, setComboBroken] = useState<{ id: number } | null>(null);
   const [counts, setCounts] = useState({ perfect: 0, good: 0, miss: 0 });
   const [doomedAt, setDoomedAt] = useState<number | null>(initialLife <= 0 ? 0 : null);
 
@@ -71,6 +96,10 @@ export function Gameplay({
   const doomedAtRef = useRef<number>(0);
   const completedRef = useRef(false);
   const flashIdRef = useRef(0);
+  const deltaIdRef = useRef(0);
+  const burstIdRef = useRef(0);
+  const breakIdRef = useRef(0);
+  const comboRef = useRef(0);
 
   const doomed = doomedAt !== null;
   const noteCount = sortedNotes.length;
@@ -118,15 +147,42 @@ export function Gameplay({
         }
         return next;
       });
-      setCombo((c) => {
-        const next = resetCombo ? 0 : c + 1;
-        setMaxCombo((mc) => Math.max(mc, next));
-        return next;
-      });
-      const id = ++flashIdRef.current;
-      setFlashes((arr) => [...arr, { id, x: note.x, y: note.y, kind: judgment }]);
+
+      const prevCombo = comboRef.current;
+      const nextCombo = resetCombo ? 0 : prevCombo + 1;
+      comboRef.current = nextCombo;
+      setCombo(nextCombo);
+      setMaxCombo((mc) => Math.max(mc, nextCombo));
+
+      if (gained > 0) {
+        const did = ++deltaIdRef.current;
+        setScoreDeltas((arr) => [...arr, { id: did, amount: gained, kind: judgment }]);
+        window.setTimeout(() => {
+          setScoreDeltas((arr) => arr.filter((d) => d.id !== did));
+        }, 900);
+      }
+
+      // Snap-flash a "BREAK" tag only if the player had a meaningful run going.
+      if (resetCombo && prevCombo >= 5) {
+        const bid = ++breakIdRef.current;
+        setComboBroken({ id: bid });
+        window.setTimeout(() => {
+          setComboBroken((b) => (b && b.id === bid ? null : b));
+        }, 700);
+      }
+
+      if (!resetCombo && isComboMilestone(nextCombo)) {
+        const mid = ++burstIdRef.current;
+        setComboBurst({ id: mid, value: nextCombo });
+        window.setTimeout(() => {
+          setComboBurst((m) => (m && m.id === mid ? null : m));
+        }, 1100);
+      }
+
+      const fid = ++flashIdRef.current;
+      setFlashes((arr) => [...arr, { id: fid, x: note.x, y: note.y, kind: judgment }]);
       window.setTimeout(() => {
-        setFlashes((arr) => arr.filter((f) => f.id !== id));
+        setFlashes((arr) => arr.filter((f) => f.id !== fid));
       }, 600);
     },
     [],
@@ -230,6 +286,7 @@ export function Gameplay({
 
   const lifePct = (life / LIFE_MAX) * 100;
   const cumulativeScore = initialScore + score;
+  const tier = comboTier(combo);
 
   return (
     <div className="gameplay" ref={containerRef} onPointerDown={handlePointerDown}>
@@ -267,8 +324,47 @@ export function Gameplay({
           </div>
         )}
         <div className="hud__corner hud__corner--tr">
-          <div className="hud__score">{cumulativeScore.toLocaleString()}</div>
-          <div className="hud__combo">{combo > 1 ? `${combo} combo` : "\u00a0"}</div>
+          <div className="hud__score">
+            <span className="hud__score-label">Score</span>
+            <span key={cumulativeScore} className="hud__score-num">
+              {cumulativeScore.toLocaleString()}
+            </span>
+            <div className="hud__score-deltas" aria-hidden="true">
+              {scoreDeltas.map((d) => (
+                <div
+                  key={d.id}
+                  className={`hud__score-delta hud__score-delta--${d.kind}`}
+                >
+                  +{d.amount}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className={`hud__combo hud__combo--${tier}`} aria-live="polite">
+            {combo > 1 ? (
+              <>
+                <span key={combo} className="hud__combo-num">
+                  {combo}
+                </span>
+                <span className="hud__combo-label">combo</span>
+              </>
+            ) : comboBroken ? (
+              <span key={comboBroken.id} className="hud__combo-break">
+                break
+              </span>
+            ) : (
+              <span className="hud__combo-placeholder" aria-hidden="true">
+                0
+              </span>
+            )}
+            {comboBurst && (
+              <div key={comboBurst.id} className="hud__combo-burst">
+                <span className="hud__combo-burst-cross">×</span>
+                <span className="hud__combo-burst-value">{comboBurst.value}</span>
+                <span className="hud__combo-burst-label">streak</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <div className="flashes">
