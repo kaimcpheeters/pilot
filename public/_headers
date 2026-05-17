@@ -4,6 +4,17 @@
 /media/images/*
   Cache-Control: public, max-age=86400
 
+# Judgment SFX for /training. Tiny (~15 KB each) and the filenames are
+# stable, so a day of browser caching is plenty.
+/media/audio/*
+  Cache-Control: public, max-age=86400
+
+# Training loop video. Day-long cache mirrors the SFX — short enough that
+# swapping the clip propagates quickly, long enough to avoid re-fetching
+# on every nav into /training within a session.
+/training.mp4
+  Cache-Control: public, max-age=86400
+
 # Social preview image. Short max-age so swapping the artwork actually
 # propagates through social scrapers (Discord/Twitter/etc.) within a day.
 /og-cover.jpg
